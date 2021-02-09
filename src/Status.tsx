@@ -1,14 +1,16 @@
 import React from 'react';
-import { mega } from 'safe-units';
-import { RcloneReport, BytesPerSecond } from './Transfers';
+import { Chip } from '@material-ui/core';
+import CheckIcon from '@material-ui/icons/Check';
+import ErrorIcon from '@material-ui/icons/Error';
+import { StatsReport, normalizeMemory } from './DataHandling';
 import { Title, RecordTable } from './Utils';
 
-export function RcloneStatus(props: { data?: RcloneReport }) {
+export function RcloneStatus(props: { data?: StatsReport }) {
   const { data } = props;
-  console.log(data);
+  const connected = data ? true : false;
   const record = {
-    "Rclone API Connection": <span>{data ? "Connected" : "Failed"}</span>,
-    "Average Download": data ? data.speed.in(mega(BytesPerSecond)) : 'N/A',
+    "Rclone API Connection": <Chip size="small" color={connected ? "primary" : "secondary"} label={connected ? "Connected" : "Failed"} icon={connected ? <CheckIcon /> : <ErrorIcon />} />,
+    "Average Download": data ? normalizeMemory(data.speed) : 'N/A',
     "Total Errors": data?.errors ?? 'N/A',
   };
 

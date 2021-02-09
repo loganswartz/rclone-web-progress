@@ -25,10 +25,15 @@ import MenuIcon from '@material-ui/icons/Menu';
 import CloudDownloadIcon from '@material-ui/icons/CloudDownload';
 import HistoryIcon from '@material-ui/icons/History';
 import HomeIcon from '@material-ui/icons/Home';
+import NightsStayIcon from '@material-ui/icons/NightsStay';
+import WbSunnyIcon from '@material-ui/icons/WbSunny';
 import clsx from 'clsx';
 import Websocket from 'react-websocket';
-import { RcloneReport, TransferList, typeNarrowReport } from './Transfers';
+import { TransferList } from './Transfers';
+import { StatsReport, typeNarrowReport } from './DataHandling';
 import { RcloneStatus } from './Status';
+
+const WS_URL = 'wss://ws.loganswartz.com/stats';
 
 const drawerWidth = '15vw';
 const useStyles = makeStyles((theme: Theme) => createStyles({
@@ -36,6 +41,9 @@ const useStyles = makeStyles((theme: Theme) => createStyles({
       display: 'flex',
     },
     toolbar: theme.mixins.toolbar,
+    title: {
+      flexGrow: 1,
+    },
     content: {
       flexGrow: 1,
       padding: theme.spacing(3),
@@ -95,7 +103,7 @@ function TopBar(props: TopBarProps) {
         <IconButton edge="start" color="inherit" aria-label="menu" onClick={toggleCallback}>
           <MenuIcon />
         </IconButton>
-        <Typography noWrap variant="h6">Rclone-Web-Progress</Typography>
+        <Typography noWrap variant="h6" className={classes.title}>Rclone-Web-Progress</Typography>
         {children}
       </Toolbar>
     </AppBar>
@@ -165,23 +173,33 @@ function handleWsReport(msg: string, callback: Function) {
 function App() {
   const classes = useStyles();
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
-  const [transferData, setTransferData] = useState<RcloneReport>();
+  const [transferData, setTransferData] = useState<StatsReport>();
+  const [darkMode, setDarkMode] = useState<boolean>(false);
   const handleDrawerToggle = () => {
     setDrawerOpen(!drawerOpen);
   }
-  const [darkMode, setDarkMode] = useState<boolean>(false);
   const theme = createMuiTheme({
     palette: {
       type: darkMode ? 'dark' : 'light',
     }
   });
 
+  function DarkModeToggle(props: { label?: React.ReactNode }) {
+    const { label } = props;
+    return (
+      <>
+        {label ?? darkMode ? <NightsStayIcon /> : <WbSunnyIcon />}
+        <Switch onChange={(_, checked) => setDarkMode(checked)} />
+      </>
+    );
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <div className={classes.root}>
         <CssBaseline />
         <TopBar toggleCallback={handleDrawerToggle}>
-          <Switch name="Dark Mode" onChange={(event, checked) => setDarkMode(checked)} />
+          <Switch name="Dark Mode" onChange={(_, checked) => setDarkMode(checked)} />
         </TopBar>
         <SideDrawer open={drawerOpen} />
         <main className={classes.content}>
@@ -191,7 +209,7 @@ function App() {
               <Grid container spacing={3}>
                 <Grid item xs={12} lg={8}>
                   <Paper className={classes.paper}>
-                    <Websocket url="wss://ws.loganswartz.com/stats" onMessage={(msg: string) => handleWsReport(msg, setTransferData)} />
+                    <Websocket url={WS_URL} onMessage={(msg: string) => handleWsReport(msg, setTransferData)} />
                     <TransferList title="Active Transfers" data={transferData} />
                   </Paper>
                 </Grid>
