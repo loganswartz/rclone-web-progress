@@ -3,12 +3,14 @@ import {
   AppBar,
   Toolbar,
   Drawer,
+  DrawerProps,
   Typography,
   IconButton,
   Container,
   Paper,
   Grid,
   Box,
+  Hidden,
   makeStyles,
   Theme,
   List,
@@ -20,6 +22,7 @@ import {
   Switch,
   ThemeProvider,
   createMuiTheme,
+  useMediaQuery,
 } from '@material-ui/core';
 import MenuIcon from '@material-ui/icons/Menu';
 import CloudDownloadIcon from '@material-ui/icons/CloudDownload';
@@ -32,13 +35,15 @@ import Websocket from 'react-websocket';
 import { TransferList } from './Transfers';
 import { StatsReport, typeNarrowReport } from './DataHandling';
 import { RcloneStatus } from './Status';
+import { Title, usePersistentState } from './Utils';
 
 const WS_URL = 'wss://ws.loganswartz.com/stats';
 
-const drawerWidth = '15vw';
+const drawerWidth = '240px';
 const useStyles = makeStyles((theme: Theme) => createStyles({
     root: {
       display: 'flex',
+      flexGrow: 1,
     },
     toolbar: theme.mixins.toolbar,
     title: {
@@ -47,6 +52,10 @@ const useStyles = makeStyles((theme: Theme) => createStyles({
     content: {
       flexGrow: 1,
       padding: theme.spacing(3),
+      [theme.breakpoints.down('xs')]: {
+        padding: theme.spacing(0),
+        overflowX: 'hidden',
+      },
     },
     drawer: {
       width: drawerWidth,
@@ -66,7 +75,7 @@ const useStyles = makeStyles((theme: Theme) => createStyles({
         duration: theme.transitions.duration.leavingScreen,
       }),
       overflowX: 'hidden',
-      width: theme.spacing(7) + 1,
+      width: theme.spacing(0),
       [theme.breakpoints.up('sm')]: {
         width: theme.spacing(7.5),
       },
@@ -110,32 +119,42 @@ function TopBar(props: TopBarProps) {
   );
 }
 
+const sideDrawerEntries = [
+  {
+    title: 'Home',
+    icon: <HomeIcon />,
+  },
+  {
+    title: 'Downloads',
+    icon: <CloudDownloadIcon />,
+  },
+  {
+    title: 'History',
+    icon: <HistoryIcon />,
+  }
+];
+
+type DrawerEntry = {
+  title: string,
+  icon: React.ReactNode,
+  link?: string,
+}
+
 interface SideDrawerProps {
 	open: boolean;
+    setOpen(open: boolean): void;
+    entries: DrawerEntry[];
+    variant?: DrawerProps["variant"];
+    drawerProps?: DrawerProps;
 }
 
 function SideDrawer(props: SideDrawerProps) {
-  const { open } = props;
+  const { open, setOpen, entries, variant, drawerProps } = props;
   const classes = useStyles();
-
-  const entries = [
-    {
-      title: 'Home',
-      icon: <HomeIcon />,
-    },
-    {
-      title: 'Downloads',
-      icon: <CloudDownloadIcon />,
-    },
-    {
-      title: 'History',
-      icon: <HistoryIcon />,
-    }
-  ];
 
   return (
     <Drawer
-      variant="permanent"
+      variant={variant ?? "permanent"}
       className={clsx(classes.drawer, {
         [classes.drawerOpen]: open,
         [classes.drawerClose]: !open,
@@ -147,12 +166,15 @@ function SideDrawer(props: SideDrawerProps) {
         }),
       }}
       open={open}
+      onBackdropClick={() => { if (variant === "temporary") { setOpen(false) } }}
+      {...drawerProps}
     >
-      <Toolbar />
+      {variant === "permanent" ? <Toolbar /> : null }
       <div className={classes.drawerContainer}>
         <List>
+          {variant === "permanent" ? null : <ListItem><Title>Rclone Stats</Title></ListItem>}
           {entries.map((entry, index) => (
-            <ListItem button key={index}>
+            <ListItem button key={index} onClick={() => { if (entry.link) { window.location.href = entry.link } }}>
               <ListItemIcon>{entry.icon}</ListItemIcon>
               <ListItemText primary={entry.title} />
             </ListItem>
@@ -162,6 +184,8 @@ function SideDrawer(props: SideDrawerProps) {
     </Drawer>
   );
 }
+
+SideDrawer.defaultProps = { variant: "temporary" };
 
 function handleWsReport(msg: string, callback: Function) {
   const parsed = JSON.parse(msg);
@@ -174,15 +198,31 @@ function App() {
   const classes = useStyles();
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
   const [transferData, setTransferData] = useState<StatsReport>();
-  const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [darkMode, setDarkMode] = usePersistentState('dark_mode', false);
+  const [wsConnected, setWsConnected] = useState(false);
   const handleDrawerToggle = () => {
     setDrawerOpen(!drawerOpen);
   }
   const theme = createMuiTheme({
     palette: {
       type: darkMode ? 'dark' : 'light',
-    }
+    },
+    overrides: {
+      MuiCssBaseline: {
+        '@global': {
+          html: {
+            display: 'flex',
+            minHeight: '100vh',
+          },
+          body: {
+            display: 'flex',
+            flexGrow: 1,
+          },
+        },
+      },
+    },
   });
+  const isSmall = useMediaQuery(theme.breakpoints.down('xs'));
 
   function DarkModeToggle(props: { label?: React.ReactNode }) {
     const { label } = props;
@@ -199,23 +239,32 @@ function App() {
       <div className={classes.root}>
         <CssBaseline />
         <TopBar toggleCallback={handleDrawerToggle}>
-          <Switch name="Dark Mode" onChange={(_, checked) => setDarkMode(checked)} />
+          <Switch name="Dark Mode" checked={darkMode} onChange={(_, checked) => setDarkMode(checked)} />
         </TopBar>
-        <SideDrawer open={drawerOpen} />
+        <Hidden xsDown>
+          <SideDrawer entries={sideDrawerEntries} open={drawerOpen} setOpen={setDrawerOpen} variant="permanent" />
+        </Hidden>
+        <Hidden smUp>
+          <SideDrawer entries={sideDrawerEntries} open={drawerOpen} setOpen={setDrawerOpen} />
+        </Hidden>
         <main className={classes.content}>
           <Toolbar />
-          <Box height="100%">
-            <Container maxWidth="lg">
+          <Box style={{ flexGrow: 1 }}>
+            <Container maxWidth="lg" disableGutters={isSmall}>
               <Grid container spacing={3}>
                 <Grid item xs={12} lg={8}>
                   <Paper className={classes.paper}>
-                    <Websocket url={WS_URL} onMessage={(msg: string) => handleWsReport(msg, setTransferData)} />
+                    <Websocket url={WS_URL}
+                      onOpen={() => setWsConnected(true)}
+                      onClose={() => setWsConnected(false)}
+                      onMessage={(msg: string) => handleWsReport(msg, setTransferData)}
+                    />
                     <TransferList title="Active Transfers" data={transferData} />
                   </Paper>
                 </Grid>
                 <Grid item xs={12} lg={4}>
                   <Paper className={classes.paper}>
-                    <RcloneStatus data={transferData} />
+                    <RcloneStatus data={transferData} connected={wsConnected} />
                   </Paper>
                 </Grid>
               </Grid>

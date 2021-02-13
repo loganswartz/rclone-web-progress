@@ -68,7 +68,9 @@ export function normalizeMemory(value: Memory | DataRate, unit: bits | bytes = b
 
   // when 90% of the next order of magnitude is reached, switch to it
   const offset = 1 - getBaseLog(1000, 900);
-  const orderOfMagnitude = getBaseLog(1000, unit === bits ? value.value : value.value / 8);
+  const logarithm = getBaseLog(1000, unit === bits ? value.value : value.value / 8);
+  // account for log(0) === -Infinity
+  const orderOfMagnitude = logarithm !== -Infinity ? logarithm : 0
   const selection = Math.floor(orderOfMagnitude + offset);
 
   const scale = scales[selection];

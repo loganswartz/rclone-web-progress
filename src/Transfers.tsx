@@ -7,15 +7,20 @@ import {
   AccordionDetails,
   LinearProgress,
   LinearProgressProps,
+  Grid,
+  makeStyles,
+  createStyles,
+  Theme,
 } from '@material-ui/core';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
+import { createContainer } from "unstated-next";
 import {
   normalizeMemory,
   normalizeTime,
   StatsReport,
-  TransferReport,
-  typeNarrowTransfer,
   testTransfer,
+  typeNarrowTransfer,
+  TransferReport,
 } from './DataHandling';
 import { Title, RecordTable } from './Utils';
 
@@ -35,6 +40,14 @@ export function LinearProgressWithLabel(props: LinearProgressProps & { value: nu
     </Box>
   );
 }
+
+const useStyles = makeStyles((theme: Theme) => createStyles({
+    transferAccordion: {
+      [theme.breakpoints.down('xs')]: {
+        flexDirection: "column",
+      },
+    },
+}));
 
 interface TransferListProps {
   data?: StatsReport;
@@ -56,16 +69,32 @@ function TransferTable(props: { data: TransferReport }) {
   return <RecordTable record={modified} />
 }
 
+function useExpand() {
+  let [expanded, set] = useState<{[key: string]: boolean}>({});
+  function setExpanded(key: string, value: boolean) {
+    set(Object.assign({}, expanded, {[key]: value}));
+  }
+  return { expanded, setExpanded };
+}
+let Container = createContainer(useExpand);
+
 export function TransferList(props: TransferListProps) {
   function TransferItem(props: { entry: TransferReport }) {
     const { entry } = props;
-    const [open, setOpen] = useState<boolean>(false);
+    const classes = useStyles();
+    let state = Container.useContainer();
 
     return (
-      <Accordion expanded={open} onChange={(_, value) => setOpen(value)}>
+      <Accordion expanded={state.expanded[entry.name]} onChange={(_, value) => state.setExpanded(entry.name, value)}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />} style={{ display: 'flex' }}>
-          <div style={{ flexGrow: 1, maxWidth: "40%" }}>{entry.name}</div>
-          <LinearProgressWithLabel variant="determinate" value={entry.percentage} style={{ flexGrow: 1 }} />
+          <Grid container className={classes.transferAccordion}>
+            <Grid item>
+              <div style={{ flexGrow: 1, lineBreak: "anywhere", textAlign: "center" }}>{entry.name.split("/").slice(-1).pop()}</div>
+            </Grid>
+            <Grid item style={{ flexGrow: 1 }}>
+              <LinearProgressWithLabel variant="determinate" value={entry.percentage} style={{ flexGrow: 1, marginLeft: "1rem" }} />
+            </Grid>
+          </Grid>
         </AccordionSummary>
         <AccordionDetails>
           <TransferTable data={entry} />
@@ -75,12 +104,16 @@ export function TransferList(props: TransferListProps) {
   }
 
   const { data, title } = props;
-  const entries = [...(data?.transferring ?? []), typeNarrowTransfer(testTransfer)]?.map((entry, index) => <TransferItem entry={entry} key={index} />) ?? [];
+  const useTest = false;
+  const transfers = useTest ? [...(data?.transferring ?? []), typeNarrowTransfer(testTransfer), typeNarrowTransfer(Object.assign({}, testTransfer, {name: "test.mkv"}))] : data?.transferring;
+  const entries = transfers?.map((entry, index) => <TransferItem entry={entry} key={index} />) ?? [];
 
   return (
     <div style={{ width: '100%' }}>
       <Title>{title}</Title>
-      {entries.length > 0 ? entries : <span>Nothing currently transferring.</span>}
+      <Container.Provider>
+        {entries.length > 0 ? entries : <span>Nothing currently transferring.</span>}
+      </Container.Provider>
     </div>
   );
 }

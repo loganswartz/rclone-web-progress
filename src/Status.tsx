@@ -5,9 +5,8 @@ import ErrorIcon from '@material-ui/icons/Error';
 import { StatsReport, normalizeMemory } from './DataHandling';
 import { Title, RecordTable } from './Utils';
 
-export function RcloneStatus(props: { data?: StatsReport }) {
-  const { data } = props;
-  const connected = data ? true : false;
+export function RcloneStatus(props: { data?: StatsReport, connected: boolean }) {
+  const { data, connected } = props;
   const record = {
     "Rclone API Connection": <Chip size="small" color={connected ? "primary" : "secondary"} label={connected ? "Connected" : "Failed"} icon={connected ? <CheckIcon /> : <ErrorIcon />} />,
     "Average Download": data ? normalizeMemory(data.speed) : 'N/A',
