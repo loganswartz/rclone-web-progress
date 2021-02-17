@@ -155,43 +155,37 @@ export type StatsReport = {
   checking: string[],  // an array of names of currently active file checks
 }
 
-type TransferHistoryReport = {
-  transferred: [  // an array of completed transfers (including failed ones)
-    {
-      name: string,  // name of the file
-      size: bytes,  // size of the file in bytes
-      bytes: bytes,  // total transferred bytes for this file
-      checked: boolean,  // if the transfer is only checked (skipped, deleted)
-      timestamp: milliseconds,  // integer representing millisecond unix epoch
-      error?: string,  // string description of the error (empty if successful)
-      jobid: number,  // id of the job that this transfer belongs to
-    }
-  ]
+type CompletedTransfer = {
+  name: string,  // name of the file
+  size: bytes,  // size of the file in bytes
+  bytes: bytes,  // total transferred bytes for this file
+  checked: boolean,  // if the transfer is only checked (skipped, deleted)
+  started_at: Date,
+  completed_at: Date,
+  error: string,  // string description of the error (empty if successful)
+  jobid?: number,  // id of the job that this transfer belongs to
+  group: string,  // stats group id
 }
 
-type RawTransferHistoryReport = {
-  transferred: [  // an array of completed transfers (including failed ones)
-    {
-      name: string,  // name of the file
-      size: number,  // size of the file in bytes
-      bytes: number,  // total transferred bytes for this file
-      checked: boolean,  // if the transfer is only checked (skipped, deleted)
-      timestamp: number,  // integer representing millisecond unix epoch
-      error?: string,  // string description of the error (empty if successful)
-      jobid: number,  // id of the job that this transfer belongs to
-    }
-  ]
+type CompletedTransferReport = {
+  transferred: CompletedTransfer[],
 }
 
-export const testTransfer: RawTransferReport = {
-  bytes: 163679406,
-  speed: 3432125,
-  eta: 252,
-  name: "[Golumpa]Your.Name.2018.(1080p).mkv",
-  percentage: 42,
-  speedAvg: 23523,
-  size: 937912872,
-};
+type RawCompletedTransfer = {
+  name: string,  // name of the file
+  size: number,  // size of the file in bytes
+  bytes: number,  // total transferred bytes for this file
+  checked: boolean,  // if the transfer is only checked (skipped, deleted)
+  started_at: string,  // ISO 8601 datetime string
+  completed_at: string,  // ISO 8601 datetime string
+  error: string,  // string description of the error (empty if successful)
+  jobid?: number,  // id of the job that this transfer belongs to
+  group: string,  // stats group id
+}
+
+type RawCompletedTransferReport = {
+  transferred: RawCompletedTransfer[],
+}
 
 export function typeNarrowTransfer(raw: RawTransferReport): TransferReport {
   const converted: TransferReport = {
@@ -218,5 +212,24 @@ export function typeNarrowReport(raw: RawStatsReport): StatsReport {
   }
 
   const converted: StatsReport = Object.assign({}, raw, changes);
+  return converted;
+}
+
+export function typeNarrowCompletedTransfer(raw: RawCompletedTransfer): CompletedTransfer {
+  const changes = {
+    size: Measure.of(raw.bytes, BytesPerSecond),
+    bytes: Measure.of(raw.bytes, bytes),
+    started_at: new Date(raw.started_at),
+    completed_at: new Date(raw.completed_at),
+  }
+
+  const converted: CompletedTransfer = Object.assign({}, raw, changes);
+  return converted;
+}
+
+export function typeNarrowCompletedTransferReport(raw: RawCompletedTransferReport): CompletedTransferReport {
+  const converted: CompletedTransferReport = {
+    transferred: raw.transferred.map(typeNarrowCompletedTransfer),
+  }
   return converted;
 }

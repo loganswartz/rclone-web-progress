@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -19,7 +19,6 @@ import {
   ListItemText,
   createStyles,
   CssBaseline,
-  Switch,
   ThemeProvider,
   createMuiTheme,
   useMediaQuery,
@@ -30,6 +29,7 @@ import HistoryIcon from '@material-ui/icons/History';
 import HomeIcon from '@material-ui/icons/Home';
 import NightsStayIcon from '@material-ui/icons/NightsStay';
 import WbSunnyIcon from '@material-ui/icons/WbSunny';
+import SettingsBrightnessIcon from '@material-ui/icons/SettingsBrightness';
 import clsx from 'clsx';
 import Websocket from 'react-websocket';
 import { TransferList } from './Transfers';
@@ -37,7 +37,7 @@ import { StatsReport, typeNarrowReport } from './DataHandling';
 import { RcloneStatus } from './Status';
 import { Title, usePersistentState } from './Utils';
 
-const WS_URL = 'wss://ws.loganswartz.com/stats';
+const WS_URL = process.env.REACT_APP_WS_URL;
 
 const drawerWidth = '240px';
 const useStyles = makeStyles((theme: Theme) => createStyles({
@@ -50,6 +50,7 @@ const useStyles = makeStyles((theme: Theme) => createStyles({
       flexGrow: 1,
     },
     content: {
+      maxWidth: '100vw',
       flexGrow: 1,
       padding: theme.spacing(3),
       [theme.breakpoints.down('xs')]: {
@@ -194,52 +195,83 @@ function handleWsReport(msg: string, callback: Function) {
   }
 }
 
+type IconToggleProps = {
+  options: { [name: string]: React.ReactNode },
+  toggleOrder: string[],
+  onChange(value: string): void,
+  selected: string,
+  label?: React.ReactNode
+}
+
+function IconToggle(props: IconToggleProps) {
+  const { options, selected, toggleOrder, onChange, label } = props;
+  const entries = Object.entries(options).sort((a, b) => toggleOrder.indexOf(a[0]) - toggleOrder.indexOf(b[0]));
+  const position = entries.findIndex((entry) => entry[0] === selected);
+  const increment = () => {
+    onChange(position >= entries.length-1 ? toggleOrder[0] : toggleOrder[position + 1])
+  };
+
+  return (
+    <IconButton onClick={increment}>
+      {label}{options[selected]}
+    </IconButton>
+  );
+}
+
 function App() {
   const classes = useStyles();
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
   const [transferData, setTransferData] = useState<StatsReport>();
-  const [darkMode, setDarkMode] = usePersistentState('dark_mode', false);
   const [wsConnected, setWsConnected] = useState(false);
+
   const handleDrawerToggle = () => {
     setDrawerOpen(!drawerOpen);
   }
-  const theme = createMuiTheme({
-    palette: {
-      type: darkMode ? 'dark' : 'light',
-    },
-    overrides: {
-      MuiCssBaseline: {
-        '@global': {
-          html: {
-            display: 'flex',
-            minHeight: '100vh',
-          },
-          body: {
-            display: 'flex',
-            flexGrow: 1,
+
+  const [mode, setMode] = usePersistentState('dark_mode', 'system');
+  const modes = {
+    system: <SettingsBrightnessIcon />,
+    dark: <NightsStayIcon />,
+    light: <WbSunnyIcon />,
+  };
+
+  // reset if value is invalid
+  if (!Object.keys(modes).includes(mode)) {
+    setMode('system');
+  }
+
+  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
+  const theme = useMemo(
+    () =>
+      createMuiTheme({
+        palette: {
+          type: mode === "system" ? (prefersDarkMode ? 'dark' : 'light') : mode as 'light'|'dark',
+        },
+        overrides: {
+          MuiCssBaseline: {
+            '@global': {
+              html: {
+                display: 'flex',
+                minHeight: '100vh',
+              },
+              body: {
+                display: 'flex',
+                flexGrow: 1,
+              },
+            },
           },
         },
-      },
-    },
-  });
+      }),
+      [mode, prefersDarkMode],
+  );
   const isSmall = useMediaQuery(theme.breakpoints.down('xs'));
-
-  function DarkModeToggle(props: { label?: React.ReactNode }) {
-    const { label } = props;
-    return (
-      <>
-        {label ?? darkMode ? <NightsStayIcon /> : <WbSunnyIcon />}
-        <Switch onChange={(_, checked) => setDarkMode(checked)} />
-      </>
-    );
-  }
 
   return (
     <ThemeProvider theme={theme}>
       <div className={classes.root}>
         <CssBaseline />
         <TopBar toggleCallback={handleDrawerToggle}>
-          <Switch name="Dark Mode" checked={darkMode} onChange={(_, checked) => setDarkMode(checked)} />
+          <IconToggle options={modes} toggleOrder={['system', 'dark', 'light']} onChange={setMode} selected={mode} />
         </TopBar>
         <Hidden xsDown>
           <SideDrawer entries={sideDrawerEntries} open={drawerOpen} setOpen={setDrawerOpen} variant="permanent" />
